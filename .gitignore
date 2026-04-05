@@ -1,0 +1,10 @@
+dockertab-agent-android
+*.env
+.env
+*.json
+!go.sum
+*.p8
+*.pem
+*.key
+.DS_Store
+TODO.md
