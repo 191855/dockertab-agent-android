@@ -442,13 +442,7 @@ func (h *Handler) StreamContainerExec(c *gin.Context) {
 	}
 	defer conn.Close()
 
-	var execID string
-	for _, shell := range []string{"/bin/sh", "/bin/bash", "/bin/ash"} {
-		execID, err = h.Docker.ExecCreate(ctx, id, []string{shell}, rows, cols)
-		if err == nil {
-			break
-		}
-	}
+	execID, err := docker.CreateShellExec(ctx, h.Docker, id, rows, cols)
 	if err != nil {
 		errMsg, _ := json.Marshal(map[string]string{"error": err.Error()})
 		conn.WriteMessage(websocket.TextMessage, errMsg)

@@ -59,6 +59,18 @@ type DockerClient interface {
 	Events(ctx context.Context) (<-chan ContainerEvent, <-chan error)
 }
 
+func CreateShellExec(ctx context.Context, client DockerClient, containerID string, rows, cols int) (string, error) {
+	var lastErr error
+	for _, shell := range []string{"/bin/sh", "/bin/bash", "/bin/ash"} {
+		execID, err := client.ExecCreate(ctx, containerID, []string{shell}, rows, cols)
+		if err == nil {
+			return execID, nil
+		}
+		lastErr = err
+	}
+	return "", lastErr
+}
+
 type ImageSummary struct {
 	ID      string   `json:"id"`
 	Tags    []string `json:"tags"`
