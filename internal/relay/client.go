@@ -537,14 +537,7 @@ func (c *Client) streamStats(ctx context.Context, env Envelope, containerID stri
 }
 
 func (c *Client) streamExec(ctx context.Context, env Envelope, containerID string, rows, cols int) {
-	var execID string
-	var err error
-	for _, shell := range []string{"/bin/sh", "/bin/bash", "/bin/ash"} {
-		execID, err = c.docker.ExecCreate(ctx, containerID, []string{shell}, rows, cols)
-		if err == nil {
-			break
-		}
-	}
+	execID, err := docker.CreateShellExec(ctx, c.docker, containerID, rows, cols)
 	if err != nil {
 		log.Printf("[relay] exec create error: %v", err)
 		return
