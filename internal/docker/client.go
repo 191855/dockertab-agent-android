@@ -57,6 +57,10 @@ type DockerClient interface {
 	ExecResize(ctx context.Context, execID string, rows, cols int) error
 
 	Events(ctx context.Context) (<-chan ContainerEvent, <-chan error)
+
+	ListComposeProjects(ctx context.Context) ([]ComposeProject, error)
+	ComposeProjectAction(ctx context.Context, project, action string) error
+	ComposeServiceAction(ctx context.Context, project, service, action string) error
 }
 
 func CreateShellExec(ctx context.Context, client DockerClient, containerID string, rows, cols int) (string, error) {

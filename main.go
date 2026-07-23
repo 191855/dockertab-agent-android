@@ -7,10 +7,12 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 
 	"github.com/dockertab/agent-android/config"
 	"github.com/dockertab/agent-android/internal/auth"
+	"github.com/dockertab/agent-android/internal/compose"
 	"github.com/dockertab/agent-android/internal/docker"
 	"github.com/dockertab/agent-android/internal/handlers"
 	"github.com/dockertab/agent-android/internal/middleware"
@@ -56,6 +58,18 @@ func main() {
 
 	authService := auth.NewService(cfg.JWTSecret)
 
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		log.Printf("WARNING: failed to determine home directory: %v", err)
+		homeDir = "."
+	}
+	configDir := filepath.Join(homeDir, ".config", "dockertab-android")
+	if v := os.Getenv("DOCKERTAB_CONFIG"); v != "" {
+		configDir = filepath.Dir(v)
+	}
+	composeStore := compose.NewStore(configDir)
+	composeExecutor := compose.NewCLIExecutor(composeStore)
+
 	if cfg.LogLevel != "debug" {
 		gin.SetMode(gin.ReleaseMode)
 	}
@@ -69,10 +83,12 @@ func main() {
 	relayClient := relay.NewClient(cfg, authService, dockerClient, router, cfg.AgentID)
 
 	handler := handlers.NewHandler(dockerClient, authService, cfg, handlers.HandlerConfig{
-		Version:               agentVersion,
+		Version:                 agentVersion,
 		RelayConnected:          relayClient.IsConnected,
 		RelayRegisterFCMToken:   relayClient.RegisterFCMToken,
 		RelayUnregisterFCMToken: relayClient.UnregisterFCMToken,
+		ComposeStore:            composeStore,
+		ComposeExecutor:         composeExecutor,
 	})
 
 	router.GET("/healthz", handler.Healthz)
@@ -103,6 +119,32 @@ func main() {
 
 		api.POST("/notifications/register", handler.RegisterDeviceToken)
 		api.DELETE("/notifications/unregister", handler.UnregisterDeviceToken)
+
+		api.GET("/compose", handler.ListComposeProjects)
+		api.GET("/compose/:project", handler.GetComposeProject)
+		api.POST("/compose/:project/start", handler.ComposeProjectStart)
+		api.POST("/compose/:project/stop", handler.ComposeProjectStop)
+		api.POST("/compose/:project/restart", handler.ComposeProjectRestart)
+		api.POST("/compose/:project/services/:service/start", handler.ComposeServiceStart)
+		api.POST("/compose/:project/services/:service/stop", handler.ComposeServiceStop)
+		api.POST("/compose/:project/services/:service/restart", handler.ComposeServiceRestart)
+
+		stacks := api.Group("/compose/stacks")
+		{
+			stacks.GET("", handler.ListComposeStacks)
+			stacks.POST("", handler.CreateComposeStack)
+			stacks.GET("/:name", handler.GetComposeStack)
+			stacks.DELETE("/:name", handler.DeleteComposeStack)
+			stacks.GET("/:name/file", handler.GetComposeStackFile)
+			stacks.PUT("/:name/file", handler.UpdateComposeStackFile)
+			stacks.POST("/:name/up", handler.ComposeStackUp)
+			stacks.POST("/:name/down", handler.ComposeStackDown)
+			stacks.POST("/:name/start", handler.ComposeStackStart)
+			stacks.POST("/:name/stop", handler.ComposeStackStop)
+			stacks.POST("/:name/restart", handler.ComposeStackRestart)
+			stacks.POST("/:name/pull", handler.ComposeStackPull)
+			stacks.GET("/:name/logs", handler.GetComposeStackLogs)
+		}
 	}
 
 	debouncer := notifications.NewDebouncer(relaySender{c: relayClient})
