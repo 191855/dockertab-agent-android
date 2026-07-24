@@ -14,6 +14,7 @@ import (
 
 	"github.com/dockertab/agent-android/config"
 	"github.com/dockertab/agent-android/internal/auth"
+	"github.com/dockertab/agent-android/internal/compose"
 	"github.com/dockertab/agent-android/internal/docker"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
@@ -86,6 +87,8 @@ type HandlerConfig struct {
 	RelayConnected          func() bool
 	RelayRegisterFCMToken   func(deviceID, token string)
 	RelayUnregisterFCMToken func(deviceID, token string)
+	ComposeStore            compose.Storer
+	ComposeExecutor         compose.Executor
 }
 
 type Handler struct {
@@ -99,6 +102,9 @@ type Handler struct {
 	RelayConnected          func() bool
 	RelayRegisterFCMToken   func(deviceID, token string)
 	RelayUnregisterFCMToken func(deviceID, token string)
+
+	ComposeStore    compose.Storer
+	ComposeExecutor compose.Executor
 
 	pairLimiter *pairRateLimiter
 }
@@ -118,6 +124,8 @@ func NewHandler(dockerClient docker.DockerClient, authService *auth.Service, cfg
 		RelayConnected:          hcfg.RelayConnected,
 		RelayRegisterFCMToken:   hcfg.RelayRegisterFCMToken,
 		RelayUnregisterFCMToken: hcfg.RelayUnregisterFCMToken,
+		ComposeStore:            hcfg.ComposeStore,
+		ComposeExecutor:         hcfg.ComposeExecutor,
 		pairLimiter:             newPairRateLimiter(),
 	}
 }
@@ -442,13 +450,7 @@ func (h *Handler) StreamContainerExec(c *gin.Context) {
 	}
 	defer conn.Close()
 
-	var execID string
-	for _, shell := range []string{"/bin/sh", "/bin/bash", "/bin/ash"} {
-		execID, err = h.Docker.ExecCreate(ctx, id, []string{shell}, rows, cols)
-		if err == nil {
-			break
-		}
-	}
+	execID, err := docker.CreateShellExec(ctx, h.Docker, id, rows, cols)
 	if err != nil {
 		errMsg, _ := json.Marshal(map[string]string{"error": err.Error()})
 		conn.WriteMessage(websocket.TextMessage, errMsg)

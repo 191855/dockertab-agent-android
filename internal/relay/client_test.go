@@ -68,6 +68,9 @@ func (m *routingDocker) ExecResize(_ context.Context, _ string, _, _ int) error 
 func (m *routingDocker) Events(_ context.Context) (<-chan docker.ContainerEvent, <-chan error)       { return make(chan docker.ContainerEvent), make(chan error) }
 func (m *routingDocker) ListVolumes(_ context.Context) ([]docker.VolumeSummary, error)              { return nil, nil }
 func (m *routingDocker) CheckImageUpdates(_ context.Context, _ []string) (map[string]bool, error)   { return map[string]bool{}, nil }
+func (m *routingDocker) ListComposeProjects(_ context.Context) ([]docker.ComposeProject, error)      { return nil, nil }
+func (m *routingDocker) ComposeProjectAction(_ context.Context, _, _ string) error                   { return nil }
+func (m *routingDocker) ComposeServiceAction(_ context.Context, _, _, _ string) error                { return nil }
 
 func newRoutingClient(d docker.DockerClient) *Client {
 	return &Client{
