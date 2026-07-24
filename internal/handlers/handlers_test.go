@@ -90,6 +90,16 @@ func (m *mockDocker) CheckImageUpdates(ctx context.Context, images []string) (ma
 	return map[string]bool{}, nil
 }
 
+func (m *mockDocker) ListComposeProjects(ctx context.Context) ([]docker.ComposeProject, error) {
+	return nil, nil
+}
+func (m *mockDocker) ComposeProjectAction(ctx context.Context, project, action string) error {
+	return nil
+}
+func (m *mockDocker) ComposeServiceAction(ctx context.Context, project, service, action string) error {
+	return nil
+}
+
 func newTestHandler(t *testing.T, d docker.DockerClient) *Handler {
 	t.Helper()
 	cfg := &config.Config{
@@ -456,6 +466,15 @@ func (f *failFirstMock) ListVolumes(ctx context.Context) ([]docker.VolumeSummary
 }
 func (f *failFirstMock) CheckImageUpdates(ctx context.Context, images []string) (map[string]bool, error) {
 	return map[string]bool{}, nil
+}
+func (f *failFirstMock) ListComposeProjects(ctx context.Context) ([]docker.ComposeProject, error) {
+	return nil, nil
+}
+func (f *failFirstMock) ComposeProjectAction(ctx context.Context, project, action string) error {
+	return nil
+}
+func (f *failFirstMock) ComposeServiceAction(ctx context.Context, project, service, action string) error {
+	return nil
 }
 
 func TestPairRateLimiter_StopIsIdempotent(t *testing.T) {
