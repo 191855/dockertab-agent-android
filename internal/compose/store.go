@@ -19,7 +19,6 @@ type Storer interface {
 	FilePath(name string) string
 }
 
-// Project names are validated to [a-zA-Z0-9_-]{1,64} to prevent path traversal.
 type Store struct {
 	baseDir string
 }

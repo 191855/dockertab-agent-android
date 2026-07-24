@@ -15,7 +15,6 @@ type Executor interface {
 	Logs(ctx context.Context, name string, lines int) (string, error)
 }
 
-// start/stop/restart use the Docker SDK rather than CLI for speed and reliability.
 type CLIExecutor struct {
 	store Storer
 }
