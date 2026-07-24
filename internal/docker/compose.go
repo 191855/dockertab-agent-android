@@ -19,7 +19,7 @@ type ComposeService struct {
 	Name         string             `json:"name"`
 	Image        string             `json:"image,omitempty"`
 	Containers   []ContainerSummary `json:"containers"`
-	State        string             `json:"state"` // "running" | "partial" | "stopped"
+	State        string             `json:"state"`
 	RunningCount int                `json:"running_count"`
 	TotalCount   int                `json:"total_count"`
 }
@@ -28,7 +28,7 @@ type ComposeProject struct {
 	Name         string           `json:"name"`
 	ConfigFile   string           `json:"config_file,omitempty"`
 	Services     []ComposeService `json:"services"`
-	State        string           `json:"state"` // "running" | "partial" | "stopped"
+	State        string           `json:"state"`
 	RunningCount int              `json:"running_count"`
 	TotalCount   int              `json:"total_count"`
 }

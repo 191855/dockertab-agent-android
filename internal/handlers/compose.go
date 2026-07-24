@@ -10,8 +10,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// ── Legacy compose endpoints (backward compatible) ──────────────────────────
-
 func (h *Handler) ListComposeProjects(c *gin.Context) {
 	projects, err := h.Docker.ListComposeProjects(c.Request.Context())
 	if err != nil {
@@ -67,8 +65,6 @@ func (h *Handler) composeServiceAction(c *gin.Context, action string) {
 	c.JSON(http.StatusOK, gin.H{"message": "service " + action, "project": project, "service": service})
 }
 
-// ── Compose stacks API ───────────────────────────────────────────────────────
-
 type composeStack struct {
 	Name         string                  `json:"name"`
 	Managed      bool                    `json:"managed"`
@@ -119,7 +115,6 @@ func (h *Handler) buildStackList(c *gin.Context) ([]composeStack, error) {
 		seen[p.Name] = true
 	}
 
-	// Managed stacks not yet running appear as stopped.
 	for _, name := range managedNames {
 		if !seen[name] {
 			stacks = append(stacks, composeStack{
