@@ -161,7 +161,7 @@ If you'd rather skip the volume, just set `DOCKERTAB_API_KEY` and `DOCKERTAB_JWT
 Stacks deployed through the app are stored on the agent host at:
 
 ```
-~/.config/dockertab-android/compose/<stack-name>/docker-compose.yml
+~/.config/dockertab/compose/<stack-name>/docker-compose.yml
 ```
 
 This directory is persisted via the `dockertab-config-android` volume. Stacks started outside the app (discovered from running containers) are read-only — their compose files are not managed by the agent.
