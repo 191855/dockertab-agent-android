@@ -212,6 +212,7 @@ func (h *Handler) DeleteComposeStack(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "stack not found or not managed by agent"})
 		return
 	}
+	h.ComposeExecutor.Down(c.Request.Context(), name)
 	if err := h.ComposeStore.Delete(name); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
