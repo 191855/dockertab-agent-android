@@ -63,7 +63,7 @@ func main() {
 		log.Printf("WARNING: failed to determine home directory: %v", err)
 		homeDir = "."
 	}
-	configDir := filepath.Join(homeDir, ".config", "dockertab-android")
+	configDir := filepath.Join(homeDir, ".config", "dockertab")
 	if v := os.Getenv("DOCKERTAB_CONFIG"); v != "" {
 		configDir = filepath.Dir(v)
 	}
