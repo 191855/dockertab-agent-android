@@ -12,6 +12,7 @@ No account required. Your phone and your server.
 - Live CPU, memory, and network stats streamed over WebSocket
 - Realtime log tailing, same as `docker logs -f`
 - Start, stop, and restart containers from your phone
+- Deploy and manage Compose stacks directly from the app
 - Run one agent per host, manage all of them from a single app
 
 ---
@@ -132,6 +133,38 @@ If you'd rather skip the volume, just set `DOCKERTAB_API_KEY` and `DOCKERTAB_JWT
 | `GET` | `/api/v1/volumes` | List volumes |
 | `POST` | `/api/v1/notifications/register` | Register FCM device token |
 | `DELETE` | `/api/v1/notifications/unregister` | Unregister FCM device token |
+
+#### Compose Stacks (app-managed)
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/v1/compose/stacks` | List all stacks (managed + discovered) |
+| `POST` | `/api/v1/compose/stacks` | Create and optionally deploy a new stack |
+| `GET` | `/api/v1/compose/stacks/:name` | Get a single stack |
+| `DELETE` | `/api/v1/compose/stacks/:name` | Delete a managed stack |
+| `GET` | `/api/v1/compose/stacks/:name/file` | Get the compose file (read-only for discovered stacks) |
+| `PUT` | `/api/v1/compose/stacks/:name/file` | Update the compose file |
+| `POST` | `/api/v1/compose/stacks/:name/up` | `docker compose up -d` |
+| `POST` | `/api/v1/compose/stacks/:name/down` | `docker compose down` |
+| `POST` | `/api/v1/compose/stacks/:name/start` | Start stopped containers |
+| `POST` | `/api/v1/compose/stacks/:name/stop` | Stop running containers |
+| `POST` | `/api/v1/compose/stacks/:name/restart` | Restart containers |
+| `POST` | `/api/v1/compose/stacks/:name/pull` | Pull latest images |
+| `GET` | `/api/v1/compose/stacks/:name/logs?lines=100` | Last N log lines (max 5000) |
+
+> **Note:** Up, Down, Pull, and Logs require the `docker` CLI to be available in the agent container — it is included from v2.0 onwards.
+
+---
+
+## Compose Stack Files
+
+Stacks deployed through the app are stored on the agent host at:
+
+```
+~/.config/dockertab-android/compose/<stack-name>/docker-compose.yml
+```
+
+This directory is persisted via the `dockertab-config-android` volume. Stacks started outside the app (discovered from running containers) are read-only — their compose files are not managed by the agent.
 
 ---
 

@@ -5,6 +5,7 @@ import (
 	"os"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/dockertab/agent-android/internal/docker"
 	"github.com/gin-gonic/gin"
@@ -243,7 +244,7 @@ func (h *Handler) GetComposeStackFile(c *gin.Context) {
 		if s.Name == name && s.ConfigFile != "" {
 			data, err := os.ReadFile(s.ConfigFile)
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to read compose file: " + err.Error()})
+				c.JSON(http.StatusNotFound, gin.H{"error": "compose file not accessible by agent"})
 				return
 			}
 			c.JSON(http.StatusOK, gin.H{"name": name, "content": string(data), "readonly": true})
@@ -366,10 +367,33 @@ func (h *Handler) GetComposeStackLogs(c *gin.Context) {
 	if n, err := strconv.Atoi(c.DefaultQuery("lines", "100")); err == nil && n > 0 && n <= 5000 {
 		lines = n
 	}
+
 	logs, err := h.ComposeExecutor.Logs(c.Request.Context(), name, lines)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error(), "logs": logs})
+	if err == nil {
+		c.JSON(http.StatusOK, gin.H{"name": name, "logs": logs, "lines": lines})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"name": name, "logs": logs, "lines": lines})
+
+	projects, lerr := h.Docker.ListComposeProjects(c.Request.Context())
+	if lerr != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	var parts []string
+	for _, p := range projects {
+		if p.Name != name {
+			continue
+		}
+		for _, svc := range p.Services {
+			for _, ctr := range svc.Containers {
+				ctrLogs, _ := h.Docker.GetContainerLogs(c.Request.Context(), ctr.ID, lines)
+				parts = append(parts, "=== "+ctr.Name+" ===\n"+ctrLogs)
+			}
+		}
+	}
+	if len(parts) == 0 {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"name": name, "logs": strings.Join(parts, "\n\n"), "lines": lines})
 }
