@@ -19,6 +19,9 @@ func (h *Handler) RegisterDeviceToken(c *gin.Context) {
 
 	deviceID := c.GetString("device_id")
 
+	if h.TokenStore != nil {
+		h.TokenStore.Register(deviceID, req.DeviceToken)
+	}
 	if h.RelayRegisterFCMToken != nil {
 		h.RelayRegisterFCMToken(deviceID, req.DeviceToken)
 	}
@@ -35,6 +38,9 @@ func (h *Handler) UnregisterDeviceToken(c *gin.Context) {
 
 	deviceID := c.GetString("device_id")
 
+	if h.TokenStore != nil {
+		h.TokenStore.Unregister(deviceID)
+	}
 	if h.RelayUnregisterFCMToken != nil {
 		h.RelayUnregisterFCMToken(deviceID, req.DeviceToken)
 	}
