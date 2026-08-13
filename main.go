@@ -67,8 +67,19 @@ func main() {
 	if v := os.Getenv("DOCKERTAB_CONFIG"); v != "" {
 		configDir = filepath.Dir(v)
 	}
+	tokenStore := notifications.NewTokenStore(configDir)
 	composeStore := compose.NewStore(configDir)
 	composeExecutor := compose.NewCLIExecutor(composeStore)
+
+	var fcmClient *notifications.FCMClient
+	if cfg.FCMConfigured() {
+		var fcmErr error
+		fcmClient, fcmErr = notifications.NewFCMClient(cfg.FCMProjectID, cfg.FCMServiceAccountFile)
+		if fcmErr != nil {
+			log.Printf("WARNING: FCM init failed (%v) — local push fallback disabled", fcmErr)
+			fcmClient = nil
+		}
+	}
 
 	if cfg.LogLevel != "debug" {
 		gin.SetMode(gin.ReleaseMode)
@@ -84,6 +95,7 @@ func main() {
 
 	handler := handlers.NewHandler(dockerClient, authService, cfg, handlers.HandlerConfig{
 		Version:                 agentVersion,
+		TokenStore:              tokenStore,
 		RelayConnected:          relayClient.IsConnected,
 		RelayRegisterFCMToken:   relayClient.RegisterFCMToken,
 		RelayUnregisterFCMToken: relayClient.UnregisterFCMToken,
@@ -173,6 +185,15 @@ func main() {
 		}
 	}()
 
+	if fcmClient != nil {
+		watcher := notifications.NewWatcher(dockerClient, tokenStore, fcmClient, cfg.AgentID, cfg.Name, relayClient.IsConnected)
+		go func() {
+			if err := watcher.Start(relayCtx); err != nil && relayCtx.Err() == nil {
+				log.Printf("Docker events watcher error: %v", err)
+			}
+		}()
+	}
+
 	log.Println("──────────────────────────────────────────────")
 	if cfg.Name != "" {
 		log.Printf("  Node name      : %s", cfg.Name)
@@ -185,7 +206,11 @@ func main() {
 		log.Printf("  QR code host   : %s", qrHost)
 	}
 	log.Printf("  Relay          : connecting to %s", cfg.RelayURL)
-	log.Println("  Notifications  : via relay (FCM)")
+	if fcmClient != nil {
+		log.Println("  Notifications  : via relay (FCM), LAN-only local fallback")
+	} else {
+		log.Println("  Notifications  : via relay (FCM)")
+	}
 	log.Println("──────────────────────────────────────────────")
 
 	pairingPayload := map[string]interface{}{
