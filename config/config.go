@@ -30,6 +30,9 @@ type Config struct {
 
 	RelayURL   string `json:"relay_url,omitempty"`
 	RelayToken string `json:"relay_token,omitempty"`
+
+	FCMServiceAccountFile string `json:"fcm_service_account_file,omitempty"`
+	FCMProjectID          string `json:"fcm_project_id,omitempty"`
 }
 
 var (
@@ -88,6 +91,12 @@ func NewConfig(path string) (*Config, error) {
 	}
 	if v := os.Getenv("DOCKERTAB_RELAY_TOKEN"); v != "" {
 		cfg.RelayToken = v
+	}
+	if v := os.Getenv("DOCKERTAB_FCM_SERVICE_ACCOUNT_FILE"); v != "" {
+		cfg.FCMServiceAccountFile = v
+	}
+	if v := os.Getenv("DOCKERTAB_FCM_PROJECT_ID"); v != "" {
+		cfg.FCMProjectID = v
 	}
 
 	if cfg.AgentID == "" {
@@ -212,6 +221,10 @@ func detectLANIP() string {
 		return candidates[0]
 	}
 	return ""
+}
+
+func (c *Config) FCMConfigured() bool {
+	return c.FCMServiceAccountFile != "" && c.FCMProjectID != ""
 }
 
 func getConfigPath() string {
