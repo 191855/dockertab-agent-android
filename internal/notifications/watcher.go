@@ -1,0 +1,129 @@
+package notifications
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"log"
+
+	"github.com/dockertab/agent-android/internal/docker"
+)
+
+type Watcher struct {
+	docker         docker.DockerClient
+	store          *TokenStore
+	client         *FCMClient
+	agentID        string
+	agentName      string
+	relayConnected func() bool
+}
+
+// relayConnected reports whether the agent's relay link is currently up.
+// Registrations get mirrored to relay too, so relay already delivers the push
+// when it's reachable — this is just the fallback for when it's not.
+func NewWatcher(dockerClient docker.DockerClient, store *TokenStore, client *FCMClient, agentID, agentName string, relayConnected func() bool) *Watcher {
+	return &Watcher{
+		docker:         dockerClient,
+		store:          store,
+		client:         client,
+		agentID:        agentID,
+		agentName:      agentName,
+		relayConnected: relayConnected,
+	}
+}
+
+func (w *Watcher) Start(ctx context.Context) error {
+	log.Println("[Notifications] Docker events watcher started")
+
+	debouncer := NewDebouncer(w)
+	messages, errs := w.docker.Events(ctx)
+	for {
+		select {
+		case <-ctx.Done():
+			log.Println("[Notifications] Docker events watcher stopped")
+			return nil
+		case err := <-errs:
+			if ctx.Err() != nil {
+				log.Println("[Notifications] Docker events watcher stopped")
+				return nil
+			}
+			return fmt.Errorf("docker events stream: %w", err)
+		case msg, ok := <-messages:
+			if !ok {
+				return nil
+			}
+			id, name := msg.ContainerID, msg.ContainerName
+			if name == "" {
+				if len(id) >= 12 {
+					name = id[:12]
+				} else {
+					name = id
+				}
+			}
+			switch msg.Action {
+			case "die":
+				debouncer.OnDie(ctx, id, name)
+			case "start":
+				debouncer.OnStart(ctx, id, name)
+			}
+		}
+	}
+}
+
+func containsEvent(events []string, action string) bool {
+	for _, e := range events {
+		if e == action {
+			return true
+		}
+	}
+	return false
+}
+
+func (w *Watcher) Send(ctx context.Context, id, name, action string) {
+	w.push(ctx, id, name, action)
+}
+
+func (w *Watcher) push(ctx context.Context, containerID, name, action string) {
+	if w.relayConnected != nil && w.relayConnected() {
+		return // relay handles it, avoid double-sending
+	}
+
+	displayHost := w.agentName
+	if displayHost == "" {
+		displayHost = "agent"
+	}
+
+	var title, body string
+	switch action {
+	case "die":
+		title = "Container Stopped"
+		body = fmt.Sprintf("%s stopped on %s", name, displayHost)
+	case "restart":
+		title = "Container Restarted"
+		body = fmt.Sprintf("%s restarted on %s", name, displayHost)
+	case "start":
+		title = "Container Started"
+		body = fmt.Sprintf("%s started on %s", name, displayHost)
+	default:
+		return
+	}
+
+	tokens := w.store.All()
+	if len(tokens) == 0 {
+		return
+	}
+	for _, record := range tokens {
+		if len(record.Events) > 0 && !containsEvent(record.Events, action) {
+			continue
+		}
+		if err := w.client.Push(ctx, record.Token, title, body, containerID, name, w.agentID); err != nil {
+			var expired *TokenExpiredError
+			if errors.As(err, &expired) {
+				log.Printf("[Notifications] removing expired token %.16s...", expired.DeviceToken)
+				w.store.UnregisterByToken(expired.DeviceToken)
+			} else {
+				log.Printf("[Notifications] push failed: %v", err)
+			}
+		}
+	}
+}

@@ -16,6 +16,7 @@ import (
 	"github.com/dockertab/agent-android/internal/auth"
 	"github.com/dockertab/agent-android/internal/compose"
 	"github.com/dockertab/agent-android/internal/docker"
+	"github.com/dockertab/agent-android/internal/notifications"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 )
@@ -84,6 +85,7 @@ func (rl *pairRateLimiter) cleanup() {
 
 type HandlerConfig struct {
 	Version                 string
+	TokenStore              *notifications.TokenStore
 	RelayConnected          func() bool
 	RelayRegisterFCMToken   func(deviceID, token string)
 	RelayUnregisterFCMToken func(deviceID, token string)
@@ -99,6 +101,7 @@ type Handler struct {
 	Version   string
 	StartedAt time.Time
 
+	TokenStore              *notifications.TokenStore
 	RelayConnected          func() bool
 	RelayRegisterFCMToken   func(deviceID, token string)
 	RelayUnregisterFCMToken func(deviceID, token string)
@@ -121,6 +124,7 @@ func NewHandler(dockerClient docker.DockerClient, authService *auth.Service, cfg
 		AgentID:                 cfg.AgentID,
 		StartedAt:               time.Now(),
 		Version:                 hcfg.Version,
+		TokenStore:              hcfg.TokenStore,
 		RelayConnected:          hcfg.RelayConnected,
 		RelayRegisterFCMToken:   hcfg.RelayRegisterFCMToken,
 		RelayUnregisterFCMToken: hcfg.RelayUnregisterFCMToken,
