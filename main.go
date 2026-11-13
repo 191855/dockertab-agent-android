@@ -10,14 +10,14 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/dockertab/agent-android/config"
-	"github.com/dockertab/agent-android/internal/auth"
-	"github.com/dockertab/agent-android/internal/compose"
-	"github.com/dockertab/agent-android/internal/docker"
-	"github.com/dockertab/agent-android/internal/handlers"
-	"github.com/dockertab/agent-android/internal/middleware"
-	"github.com/dockertab/agent-android/internal/notifications"
-	"github.com/dockertab/agent-android/internal/relay"
+	"github.com/191855/dockertab-agent-android/config"
+	"github.com/191855/dockertab-agent-android/internal/auth"
+	"github.com/191855/dockertab-agent-android/internal/compose"
+	"github.com/191855/dockertab-agent-android/internal/docker"
+	"github.com/191855/dockertab-agent-android/internal/handlers"
+	"github.com/191855/dockertab-agent-android/internal/middleware"
+	"github.com/191855/dockertab-agent-android/internal/notifications"
+	"github.com/191855/dockertab-agent-android/internal/relay"
 	"github.com/gin-gonic/gin"
 	qrterminal "github.com/mdp/qrterminal/v3"
 )
@@ -76,7 +76,7 @@ func main() {
 		var fcmErr error
 		fcmClient, fcmErr = notifications.NewFCMClient(cfg.FCMProjectID, cfg.FCMServiceAccountFile)
 		if fcmErr != nil {
-			log.Printf("WARNING: FCM init failed (%v) — local push fallback disabled", fcmErr)
+			log.Printf("WARNING: FCM init failed (%v), local push fallback disabled", fcmErr)
 			fcmClient = nil
 		}
 	}
@@ -109,6 +109,8 @@ func main() {
 	api := router.Group("/api/v1")
 	api.Use(middleware.JWTAuth(authService))
 	{
+		api.POST("/refresh", handler.Refresh)
+
 		api.GET("/host", handler.GetHostInfo)
 
 		api.GET("/containers", handler.ListContainers)
@@ -201,7 +203,7 @@ func main() {
 	log.Printf("  Listening on   : %s", cfg.ListenAddr())
 	qrHost := cfg.PairingHost()
 	if qrHost == cfg.ListenAddr() {
-		log.Printf("  QR code host   : NOT SET — run 'make up' or set DOCKERTAB_HOST")
+		log.Printf("  QR code host   : NOT SET, run 'make up' or set DOCKERTAB_HOST")
 	} else {
 		log.Printf("  QR code host   : %s", qrHost)
 	}

@@ -29,11 +29,14 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-      - run: go test ./...
+      - run: go test -race ./...
       - run: docker build -t dockertab-agent-android:ci .
 
   secret-scan:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@v4
         with:

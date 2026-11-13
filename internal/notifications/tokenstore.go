@@ -30,11 +30,12 @@ func NewTokenStore(configDir string) *TokenStore {
 	return ts
 }
 
-func (ts *TokenStore) Register(deviceID, token string) {
+func (ts *TokenStore) Register(deviceID, token string, events []string) {
 	ts.mu.Lock()
 	ts.tokens[deviceID] = DeviceRecord{
 		Token:        token,
 		RegisteredAt: time.Now(),
+		Events:       events,
 	}
 	ts.mu.Unlock()
 	ts.save()

@@ -12,15 +12,16 @@ import (
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/dockertab/agent-android/config"
-	"github.com/dockertab/agent-android/internal/auth"
-	"github.com/dockertab/agent-android/internal/docker"
+	"github.com/191855/dockertab-agent-android/config"
+	"github.com/191855/dockertab-agent-android/internal/auth"
+	"github.com/191855/dockertab-agent-android/internal/docker"
 	"github.com/gorilla/websocket"
 )
 
@@ -112,12 +113,13 @@ func (c *Client) IsConnected() bool {
 	return c.conn != nil
 }
 
-func (c *Client) RegisterFCMToken(deviceID, token string) {
+func (c *Client) RegisterFCMToken(deviceID, token string, events []string) {
 	c.sendEnvelope(Envelope{
 		Type: TypeRegisterFCM,
 		Payload: MustMarshal(RegisterFCMPayload{
 			DeviceID:    deviceID,
 			DeviceToken: token,
+			Events:      events,
 		}),
 	})
 }
@@ -459,34 +461,30 @@ func (c *Client) handleStreamOpen(ctx context.Context, env Envelope) {
 		pathOnly = payload.Path[:idx]
 	}
 
+	query := url.Values{}
+	if idx := strings.Index(payload.Path, "?"); idx >= 0 {
+		query, _ = url.ParseQuery(payload.Path[idx+1:])
+	}
+
 	if strings.HasSuffix(pathOnly, "/logs/stream") {
-		c.streamLogs(streamCtx, env, containerID)
+		c.streamLogs(streamCtx, env, containerID, queryInt(query, "lines", 100, 5000))
 	} else if strings.HasSuffix(pathOnly, "/stats/stream") {
 		c.streamStats(streamCtx, env, containerID)
 	} else if strings.HasSuffix(pathOnly, "/exec") {
-		rows, cols := 24, 80
-		if idx := strings.Index(payload.Path, "?"); idx >= 0 {
-			for _, kv := range strings.Split(payload.Path[idx+1:], "&") {
-				if parts := strings.SplitN(kv, "=", 2); len(parts) == 2 {
-					switch parts[0] {
-					case "rows":
-						if n, err := strconv.Atoi(parts[1]); err == nil && n > 0 {
-							rows = n
-						}
-					case "cols":
-						if n, err := strconv.Atoi(parts[1]); err == nil && n > 0 {
-							cols = n
-						}
-					}
-				}
-			}
-		}
-		c.streamExec(streamCtx, env, containerID, rows, cols)
+		c.streamExec(streamCtx, env, containerID, queryInt(query, "rows", 24, 500), queryInt(query, "cols", 80, 500))
 	}
 }
 
-func (c *Client) streamLogs(ctx context.Context, env Envelope, containerID string) {
-	reader, err := c.docker.StreamLogs(ctx, containerID, 50)
+func queryInt(q url.Values, key string, fallback, max int) int {
+	n, err := strconv.Atoi(q.Get(key))
+	if err != nil || n <= 0 || n > max {
+		return fallback
+	}
+	return n
+}
+
+func (c *Client) streamLogs(ctx context.Context, env Envelope, containerID string, lines int) {
+	reader, err := c.docker.StreamLogs(ctx, containerID, lines)
 	if err != nil {
 		log.Printf("[relay] stream logs error: %v", err)
 		return

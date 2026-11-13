@@ -15,7 +15,3 @@ linters:
     presets:
       - comments
       - common-false-positives
-    rules:
-      - linters:
-          - staticcheck
-        text: "SA1019: types\\.StatsJSON is deprecated"

@@ -101,8 +101,9 @@ type NotificationPayload struct {
 }
 
 type RegisterFCMPayload struct {
-	DeviceID    string `json:"device_id"`
-	DeviceToken string `json:"device_token"`
+	DeviceID    string   `json:"device_id"`
+	DeviceToken string   `json:"device_token"`
+	Events      []string `json:"events,omitempty"`
 }
 
 type UnregisterFCMPayload struct {

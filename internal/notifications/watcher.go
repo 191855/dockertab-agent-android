@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/dockertab/agent-android/internal/docker"
+	"github.com/191855/dockertab-agent-android/internal/docker"
 )
 
 type Watcher struct {
@@ -20,7 +20,7 @@ type Watcher struct {
 
 // relayConnected reports whether the agent's relay link is currently up.
 // Registrations get mirrored to relay too, so relay already delivers the push
-// when it's reachable — this is just the fallback for when it's not.
+// when it's reachable. This is just the fallback for when it's not.
 func NewWatcher(dockerClient docker.DockerClient, store *TokenStore, client *FCMClient, agentID, agentName string, relayConnected func() bool) *Watcher {
 	return &Watcher{
 		docker:         dockerClient,

@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/dockertab/agent-android/internal/auth"
+	"github.com/191855/dockertab-agent-android/internal/auth"
 	"github.com/gin-gonic/gin"
 )
 
