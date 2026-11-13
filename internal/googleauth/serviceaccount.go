@@ -27,7 +27,7 @@ type ServiceAccount struct {
 }
 
 // LoadServiceAccount reads and parses a Google service account JSON key file.
-// Download from Google Cloud Console → IAM & Admin → Service Accounts → Keys → Add Key → JSON.
+// Download from Google Cloud Console under IAM & Admin > Service Accounts > Keys > Add Key > JSON.
 func LoadServiceAccount(path string) (*ServiceAccount, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {

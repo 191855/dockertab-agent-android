@@ -28,7 +28,6 @@ func (r *recordingSender) snapshot() []senderCall {
 	return append([]senderCall(nil), r.calls...)
 }
 
-// TestDebouncer_StartNoPending: OnStart with no pending die → immediate "start".
 func TestDebouncer_StartNoPending(t *testing.T) {
 	s := &recordingSender{}
 	d := NewDebouncer(s)
@@ -42,7 +41,6 @@ func TestDebouncer_StartNoPending(t *testing.T) {
 	}
 }
 
-// TestDebouncer_DieStartCollapsesToRestart: die then start within window → exactly one "restart".
 func TestDebouncer_DieStartCollapsesToRestart(t *testing.T) {
 	s := &recordingSender{}
 	d := NewDebouncer(s)
@@ -57,7 +55,6 @@ func TestDebouncer_DieStartCollapsesToRestart(t *testing.T) {
 	}
 }
 
-// TestDebouncer_DieStartNoExtraDie: "die" timer must be cancelled when "start" arrives.
 func TestDebouncer_DieStartNoExtraDie(t *testing.T) {
 	s := &recordingSender{}
 	d := NewDebouncer(s)
@@ -71,7 +68,6 @@ func TestDebouncer_DieStartNoExtraDie(t *testing.T) {
 	}
 }
 
-// TestDebouncer_DieFiresAfterTimeout: OnDie with no subsequent start → "die" after 1.5s.
 func TestDebouncer_DieFiresAfterTimeout(t *testing.T) {
 	s := &recordingSender{}
 	d := NewDebouncer(s)
@@ -86,13 +82,12 @@ func TestDebouncer_DieFiresAfterTimeout(t *testing.T) {
 	}
 }
 
-// TestDebouncer_MultipleOnDieResetsTimer: second die replaces the first timer; only one "die" fires.
 func TestDebouncer_MultipleOnDieResetsTimer(t *testing.T) {
 	s := &recordingSender{}
 	d := NewDebouncer(s)
 	d.OnDie(context.Background(), "ctr1", "myapp")
 	time.Sleep(800 * time.Millisecond)
-	d.OnDie(context.Background(), "ctr1", "myapp") // reset timer
+	d.OnDie(context.Background(), "ctr1", "myapp")
 	time.Sleep(1600 * time.Millisecond)
 	calls := s.snapshot()
 	if len(calls) != 1 || calls[0].action != "die" {
@@ -100,7 +95,6 @@ func TestDebouncer_MultipleOnDieResetsTimer(t *testing.T) {
 	}
 }
 
-// TestDebouncer_CancelledContextSkipsSend: cancelled ctx prevents the timer callback from sending.
 func TestDebouncer_CancelledContextSkipsSend(t *testing.T) {
 	s := &recordingSender{}
 	d := NewDebouncer(s)
@@ -113,26 +107,23 @@ func TestDebouncer_CancelledContextSkipsSend(t *testing.T) {
 	}
 }
 
-// TestDebouncer_IndependentContainers: debounce state is per container ID.
 func TestDebouncer_IndependentContainers(t *testing.T) {
 	s := &recordingSender{}
 	d := NewDebouncer(s)
 	d.OnDie(context.Background(), "ctr1", "app1")
-	d.OnStart(context.Background(), "ctr2", "app2") // different container, no pending die
+	d.OnStart(context.Background(), "ctr2", "app2")
 	calls := s.snapshot()
 	if len(calls) != 1 || calls[0].action != "start" || calls[0].id != "ctr2" {
 		t.Errorf("want [start for ctr2], got %v", calls)
 	}
 }
 
-// TestDebouncer_MultipleContainersIndependentTimers: each container has its own debounce state.
 func TestDebouncer_MultipleContainersIndependentTimers(t *testing.T) {
 	s := &recordingSender{}
 	d := NewDebouncer(s)
 	d.OnDie(context.Background(), "ctr1", "app1")
 	d.OnDie(context.Background(), "ctr2", "app2")
-	d.OnStart(context.Background(), "ctr1", "app1") // collapse ctr1 to restart
-	// ctr2 die timer still pending; start it too
+	d.OnStart(context.Background(), "ctr1", "app1")
 	d.OnStart(context.Background(), "ctr2", "app2")
 	calls := s.snapshot()
 	if len(calls) != 2 {

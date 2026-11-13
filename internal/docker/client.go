@@ -30,7 +30,7 @@ type ContainerEvent struct {
 	Action        string // "start" | "stop" | "die" | "kill"
 }
 
-// DockerClient is the security boundary for all Docker operations — only the
+// DockerClient is the security boundary for all Docker operations. Only the
 // operations listed here are accessible to the rest of the agent.
 type DockerClient interface {
 	Ping(ctx context.Context) error
@@ -266,7 +266,7 @@ func (c *Client) GetContainerStats(ctx context.Context, id string) (*ContainerSt
 	}
 	defer statsResp.Body.Close()
 
-	var statsJSON types.StatsJSON
+	var statsJSON container.StatsResponse
 	if err := json.NewDecoder(statsResp.Body).Decode(&statsJSON); err != nil {
 		return nil, fmt.Errorf("failed to decode stats: %w", err)
 	}
@@ -686,7 +686,7 @@ func parseKeyValues(s string) map[string]string {
 	return out
 }
 
-func parseStats(stats *types.StatsJSON) *ContainerStats {
+func parseStats(stats *container.StatsResponse) *ContainerStats {
 	cpuDelta := float64(stats.CPUStats.CPUUsage.TotalUsage - stats.PreCPUStats.CPUUsage.TotalUsage)
 	systemDelta := float64(stats.CPUStats.SystemUsage - stats.PreCPUStats.SystemUsage)
 	cpuCount := float64(stats.CPUStats.OnlineCPUs)

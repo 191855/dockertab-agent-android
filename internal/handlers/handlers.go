@@ -12,11 +12,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dockertab/agent-android/config"
-	"github.com/dockertab/agent-android/internal/auth"
-	"github.com/dockertab/agent-android/internal/compose"
-	"github.com/dockertab/agent-android/internal/docker"
-	"github.com/dockertab/agent-android/internal/notifications"
+	"github.com/191855/dockertab-agent-android/config"
+	"github.com/191855/dockertab-agent-android/internal/auth"
+	"github.com/191855/dockertab-agent-android/internal/compose"
+	"github.com/191855/dockertab-agent-android/internal/docker"
+	"github.com/191855/dockertab-agent-android/internal/notifications"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 )
@@ -87,7 +87,7 @@ type HandlerConfig struct {
 	Version                 string
 	TokenStore              *notifications.TokenStore
 	RelayConnected          func() bool
-	RelayRegisterFCMToken   func(deviceID, token string)
+	RelayRegisterFCMToken   func(deviceID, token string, events []string)
 	RelayUnregisterFCMToken func(deviceID, token string)
 	ComposeStore            compose.Storer
 	ComposeExecutor         compose.Executor
@@ -103,7 +103,7 @@ type Handler struct {
 
 	TokenStore              *notifications.TokenStore
 	RelayConnected          func() bool
-	RelayRegisterFCMToken   func(deviceID, token string)
+	RelayRegisterFCMToken   func(deviceID, token string, events []string)
 	RelayUnregisterFCMToken func(deviceID, token string)
 
 	ComposeStore    compose.Storer
@@ -200,6 +200,19 @@ func (h *Handler) Pair(c *gin.Context) {
 		"agent_id":    h.AgentID,
 		"relay_token": h.Config.RelayToken,
 		"message":     "paired successfully",
+	})
+}
+
+func (h *Handler) Refresh(c *gin.Context) {
+	token, err := h.Auth.GenerateToken(c.GetString("device_id"), c.GetString("device_name"))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate token"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"token":   token,
+		"message": "token refreshed",
 	})
 }
 

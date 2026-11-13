@@ -9,8 +9,8 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/191855/dockertab-agent-android/internal/docker"
 	"github.com/docker/docker/api/types"
-	"github.com/dockertab/agent-android/internal/docker"
 )
 
 type routingDocker struct {
@@ -52,25 +52,43 @@ func (m *routingDocker) ExecCreate(_ context.Context, _ string, _ []string, rows
 	return "", fmt.Errorf("stub")
 }
 
-func (m *routingDocker) Ping(_ context.Context) error                                               { return nil }
-func (m *routingDocker) Close() error                                                               { return nil }
-func (m *routingDocker) ListContainers(_ context.Context) ([]docker.ContainerSummary, error)        { return nil, nil }
-func (m *routingDocker) GetContainer(_ context.Context, _ string) (*docker.ContainerSummary, error) { return nil, nil }
-func (m *routingDocker) GetContainerLogs(_ context.Context, _ string, _ int) (string, error)       { return "", nil }
-func (m *routingDocker) GetHostInfo(_ context.Context) (*docker.HostInfo, error)                    { return nil, nil }
-func (m *routingDocker) ListImages(_ context.Context) ([]docker.ImageSummary, error)                { return nil, nil }
-func (m *routingDocker) StartContainer(_ context.Context, _ string) error                           { return nil }
-func (m *routingDocker) StopContainer(_ context.Context, _ string) error                            { return nil }
-func (m *routingDocker) RestartContainer(_ context.Context, _ string) error                         { return nil }
-func (m *routingDocker) GetContainerEnv(_ context.Context, _ string) ([]string, error)              { return nil, nil }
-func (m *routingDocker) ExecAttach(_ context.Context, _ string) (types.HijackedResponse, error)    { return types.HijackedResponse{}, fmt.Errorf("stub") }
-func (m *routingDocker) ExecResize(_ context.Context, _ string, _, _ int) error                    { return nil }
-func (m *routingDocker) Events(_ context.Context) (<-chan docker.ContainerEvent, <-chan error)       { return make(chan docker.ContainerEvent), make(chan error) }
-func (m *routingDocker) ListVolumes(_ context.Context) ([]docker.VolumeSummary, error)              { return nil, nil }
-func (m *routingDocker) CheckImageUpdates(_ context.Context, _ []string) (map[string]bool, error)   { return map[string]bool{}, nil }
-func (m *routingDocker) ListComposeProjects(_ context.Context) ([]docker.ComposeProject, error)      { return nil, nil }
-func (m *routingDocker) ComposeProjectAction(_ context.Context, _, _ string) error                   { return nil }
-func (m *routingDocker) ComposeServiceAction(_ context.Context, _, _, _ string) error                { return nil }
+func (m *routingDocker) Ping(_ context.Context) error { return nil }
+func (m *routingDocker) Close() error                 { return nil }
+func (m *routingDocker) ListContainers(_ context.Context) ([]docker.ContainerSummary, error) {
+	return nil, nil
+}
+func (m *routingDocker) GetContainer(_ context.Context, _ string) (*docker.ContainerSummary, error) {
+	return nil, nil
+}
+func (m *routingDocker) GetContainerLogs(_ context.Context, _ string, _ int) (string, error) {
+	return "", nil
+}
+func (m *routingDocker) GetHostInfo(_ context.Context) (*docker.HostInfo, error)     { return nil, nil }
+func (m *routingDocker) ListImages(_ context.Context) ([]docker.ImageSummary, error) { return nil, nil }
+func (m *routingDocker) StartContainer(_ context.Context, _ string) error            { return nil }
+func (m *routingDocker) StopContainer(_ context.Context, _ string) error             { return nil }
+func (m *routingDocker) RestartContainer(_ context.Context, _ string) error          { return nil }
+func (m *routingDocker) GetContainerEnv(_ context.Context, _ string) ([]string, error) {
+	return nil, nil
+}
+func (m *routingDocker) ExecAttach(_ context.Context, _ string) (types.HijackedResponse, error) {
+	return types.HijackedResponse{}, fmt.Errorf("stub")
+}
+func (m *routingDocker) ExecResize(_ context.Context, _ string, _, _ int) error { return nil }
+func (m *routingDocker) Events(_ context.Context) (<-chan docker.ContainerEvent, <-chan error) {
+	return make(chan docker.ContainerEvent), make(chan error)
+}
+func (m *routingDocker) ListVolumes(_ context.Context) ([]docker.VolumeSummary, error) {
+	return nil, nil
+}
+func (m *routingDocker) CheckImageUpdates(_ context.Context, _ []string) (map[string]bool, error) {
+	return map[string]bool{}, nil
+}
+func (m *routingDocker) ListComposeProjects(_ context.Context) ([]docker.ComposeProject, error) {
+	return nil, nil
+}
+func (m *routingDocker) ComposeProjectAction(_ context.Context, _, _ string) error    { return nil }
+func (m *routingDocker) ComposeServiceAction(_ context.Context, _, _, _ string) error { return nil }
 
 func newRoutingClient(d docker.DockerClient) *Client {
 	return &Client{
@@ -236,7 +254,6 @@ func TestHandleStreamOpen_MalformedPayload(t *testing.T) {
 	}
 }
 
-// TestHandleStreamInput_NoStream: input for an unknown request ID is silently dropped.
 func TestHandleStreamInput_NoStream(t *testing.T) {
 	c := newRoutingClient(&routingDocker{})
 	env := Envelope{
@@ -244,11 +261,9 @@ func TestHandleStreamInput_NoStream(t *testing.T) {
 		RequestID: "unknown",
 		Payload:   mustMarshalPayload(t, StreamPayload{Data: "aGVsbG8="}), // base64("hello")
 	}
-	// Must not panic.
 	c.handleStreamInput(env)
 }
 
-// TestHandleStreamInput_NilStdin: input for a known stream with no exec attached is silently dropped.
 func TestHandleStreamInput_NilStdin(t *testing.T) {
 	c := newRoutingClient(&routingDocker{})
 	_, cancel := context.WithCancel(context.Background())
@@ -262,11 +277,9 @@ func TestHandleStreamInput_NilStdin(t *testing.T) {
 		RequestID: "req-1",
 		Payload:   mustMarshalPayload(t, StreamPayload{Data: "aGVsbG8="}),
 	}
-	// stdin is nil — must not panic.
 	c.handleStreamInput(env)
 }
 
-// TestHandleStreamResize_NoStream: resize for an unknown request ID is silently dropped.
 func TestHandleStreamResize_NoStream(t *testing.T) {
 	md := &routingDocker{}
 	c := newRoutingClient(md)
@@ -276,20 +289,18 @@ func TestHandleStreamResize_NoStream(t *testing.T) {
 		Payload:   mustMarshalPayload(t, ResizePayload{Rows: 40, Cols: 120}),
 	}
 	c.handleStreamResize(env)
-	// ExecResize must not have been called.
 	if got := md.firstCalled(); got != "" {
 		t.Errorf("want no docker call, got %q", got)
 	}
 }
 
-// TestHandleStreamResize_EmptyExecID: resize for a stream with no exec session is silently dropped.
 func TestHandleStreamResize_EmptyExecID(t *testing.T) {
 	md := &routingDocker{}
 	c := newRoutingClient(md)
 	_, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	c.streamsMu.Lock()
-	c.streams["req-1"] = &streamEntry{clientID: "client-1", cancel: cancel} // execID == ""
+	c.streams["req-1"] = &streamEntry{clientID: "client-1", cancel: cancel}
 	c.streamsMu.Unlock()
 
 	env := Envelope{
