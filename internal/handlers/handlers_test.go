@@ -13,10 +13,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/191855/dockertab-agent-android/config"
+	"github.com/191855/dockertab-agent-android/internal/auth"
+	"github.com/191855/dockertab-agent-android/internal/docker"
 	"github.com/docker/docker/api/types"
-	"github.com/dockertab/agent-android/config"
-	"github.com/dockertab/agent-android/internal/auth"
-	"github.com/dockertab/agent-android/internal/docker"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 )
@@ -26,12 +26,20 @@ func init() {
 }
 
 type mockDocker struct {
-	pingErr    error
-	pingDelay  time.Duration
-	envVars    []string
-	envErr     error
-	execShells []string // records ExecCreate cmd[0] calls
-	execErr    error
+	pingErr   error
+	pingDelay time.Duration
+	envVars   []string
+	envErr    error
+	execErr   error
+
+	mu         sync.Mutex
+	execShells []string
+}
+
+func (m *mockDocker) shells() []string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return append([]string(nil), m.execShells...)
 }
 
 func (m *mockDocker) Ping(ctx context.Context) error {
@@ -44,7 +52,7 @@ func (m *mockDocker) Ping(ctx context.Context) error {
 	}
 	return m.pingErr
 }
-func (m *mockDocker) Close() error                                             { return nil }
+func (m *mockDocker) Close() error { return nil }
 func (m *mockDocker) ListContainers(ctx context.Context) ([]docker.ContainerSummary, error) {
 	return nil, nil
 }
@@ -72,7 +80,9 @@ func (m *mockDocker) GetContainerEnv(ctx context.Context, id string) ([]string, 
 }
 func (m *mockDocker) ExecCreate(ctx context.Context, containerID string, cmd []string, rows, cols int) (string, error) {
 	if len(cmd) > 0 {
+		m.mu.Lock()
 		m.execShells = append(m.execShells, cmd[0])
+		m.mu.Unlock()
 	}
 	return "exec-id-123", m.execErr
 }
@@ -256,7 +266,6 @@ func TestIsSensitiveEnvKey(t *testing.T) {
 		{"POSTGRES_PASSWORD", true},
 		{"MY_KEY", true},
 		{"SECRET_SAUCE", true},
-		// Not sensitive
 		{"PORT", false},
 		{"HOST", false},
 		{"LOG_LEVEL", false},
@@ -366,11 +375,12 @@ func TestStreamContainerExec_TriesShFirst(t *testing.T) {
 	}
 	time.Sleep(50 * time.Millisecond)
 
-	if len(md.execShells) == 0 {
+	shells := md.shells()
+	if len(shells) == 0 {
 		t.Fatal("expected ExecCreate to be called at least once")
 	}
-	if md.execShells[0] != "/bin/sh" {
-		t.Errorf("expected first shell tried to be /bin/sh, got %q", md.execShells[0])
+	if shells[0] != "/bin/sh" {
+		t.Errorf("expected first shell tried to be /bin/sh, got %q", shells[0])
 	}
 }
 
@@ -384,11 +394,12 @@ func TestStreamContainerExec_FallsBackToBash(t *testing.T) {
 	}
 	time.Sleep(50 * time.Millisecond)
 
-	if len(fm.inner.execShells) == 0 {
-		t.Fatal("expected at least one successful ExecCreate (fallback)")
+	shells := fm.inner.shells()
+	if len(shells) == 0 {
+		t.Fatal("expected at least one successful ExecCreate after the fallback")
 	}
-	if fm.inner.execShells[0] != "/bin/bash" {
-		t.Errorf("expected fallback shell /bin/bash, got %q", fm.inner.execShells[0])
+	if shells[0] != "/bin/bash" {
+		t.Errorf("expected fallback shell /bin/bash, got %q", shells[0])
 	}
 }
 
@@ -445,6 +456,8 @@ func (f *failFirstMock) GetContainerEnv(ctx context.Context, id string) ([]strin
 	return nil, nil
 }
 func (f *failFirstMock) ExecCreate(ctx context.Context, containerID string, cmd []string, rows, cols int) (string, error) {
+	f.inner.mu.Lock()
+	defer f.inner.mu.Unlock()
 	f.calls++
 	if f.calls <= f.failCount {
 		return "", fmt.Errorf("exec: %q not found", cmd)
@@ -523,13 +536,14 @@ func TestNewHandler_ZeroVersionInHealthz(t *testing.T) {
 func TestNewHandler_RegisterDeviceToken(t *testing.T) {
 	var mu sync.Mutex
 	var capturedDeviceID, capturedToken string
+	var capturedEvents []string
 
 	cfg := &config.Config{APIKey: "key", AgentID: "agent"}
 	svc := auth.NewService("secret")
 	h := NewHandler(&mockDocker{}, svc, cfg, HandlerConfig{
-		RelayRegisterFCMToken: func(deviceID, token string) {
+		RelayRegisterFCMToken: func(deviceID, token string, events []string) {
 			mu.Lock()
-			capturedDeviceID, capturedToken = deviceID, token
+			capturedDeviceID, capturedToken, capturedEvents = deviceID, token, events
 			mu.Unlock()
 		},
 	})
@@ -538,7 +552,7 @@ func TestNewHandler_RegisterDeviceToken(t *testing.T) {
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 	c.Request = httptest.NewRequest("POST", "/notifications/register",
-		strings.NewReader(`{"device_token":"test-fcm-token"}`))
+		strings.NewReader(`{"device_token":"test-fcm-token","events":["die","restart"]}`))
 	c.Request.Header.Set("Content-Type", "application/json")
 	c.Set("device_id", "device-123")
 	h.RegisterDeviceToken(c)
@@ -547,13 +561,16 @@ func TestNewHandler_RegisterDeviceToken(t *testing.T) {
 		t.Fatalf("want 200, got %d: %s", w.Code, w.Body.String())
 	}
 	mu.Lock()
-	did, tok := capturedDeviceID, capturedToken
+	did, tok, events := capturedDeviceID, capturedToken, capturedEvents
 	mu.Unlock()
 	if tok != "test-fcm-token" {
 		t.Errorf("RelayRegisterFCMToken: want token=test-fcm-token, got %q", tok)
 	}
 	if did != "device-123" {
 		t.Errorf("RelayRegisterFCMToken: want device_id=device-123, got %q", did)
+	}
+	if len(events) != 2 || events[0] != "die" || events[1] != "restart" {
+		t.Errorf("RelayRegisterFCMToken: want events [die restart], got %v", events)
 	}
 }
 

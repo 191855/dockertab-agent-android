@@ -1,4 +1,4 @@
-module github.com/dockertab/agent-android
+module github.com/191855/dockertab-agent-android
 
 go 1.24.0
 

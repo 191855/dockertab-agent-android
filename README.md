@@ -1,4 +1,4 @@
-# DockerTab Agent — Android
+# DockerTab Agent for Android
 
 Lightweight backend for the DockerTab Android app. Runs on your server and exposes a REST + WebSocket API for monitoring and managing Docker containers from your phone.
 
@@ -88,7 +88,7 @@ Two variables are all most setups need: `DOCKERTAB_HOST` (your server's LAN IP, 
 
 ## Security
 
-- All endpoints except `/healthz` and `/api/v1/pair` require a valid JWT. Tokens expire after 180 days.
+- All endpoints except `/healthz` and `/api/v1/pair` require a valid JWT. Tokens expire after 180 days, and a token that is still valid can be swapped for a fresh one through `/api/v1/refresh`.
 - API keys and JWT secrets are generated with `crypto/rand` on first run and stored at `0600`.
 - The pairing API key is only accessible via the QR code or the local config file, never returned in HTTP responses.
 - The Docker socket is mounted read-only inside the container.
@@ -117,6 +117,7 @@ If you'd rather skip the volume, just set `DOCKERTAB_API_KEY` and `DOCKERTAB_JWT
 
 | Method | Path | Description |
 |---|---|---|
+| `POST` | `/api/v1/refresh` | Swap a valid JWT for a new one |
 | `GET` | `/api/v1/host` | Host system info |
 | `GET` | `/api/v1/containers` | List all containers |
 | `GET` | `/api/v1/containers/:id` | Single container details |
@@ -130,9 +131,23 @@ If you'd rather skip the volume, just set `DOCKERTAB_API_KEY` and `DOCKERTAB_JWT
 | `GET` | `/api/v1/containers/:id/stats/stream` | WebSocket: live stats (2s interval) |
 | `GET` | `/api/v1/containers/:id/exec` | WebSocket: interactive shell |
 | `GET` | `/api/v1/images` | List images |
+| `GET` | `/api/v1/image-updates?images=nginx:latest,redis:7` | Check whether newer versions of the listed images exist |
 | `GET` | `/api/v1/volumes` | List volumes |
 | `POST` | `/api/v1/notifications/register` | Register FCM device token |
 | `DELETE` | `/api/v1/notifications/unregister` | Unregister FCM device token |
+
+#### Compose Projects (discovered from container labels)
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/v1/compose` | List compose projects |
+| `GET` | `/api/v1/compose/:project` | Single project with its services |
+| `POST` | `/api/v1/compose/:project/start` | Start every service in the project |
+| `POST` | `/api/v1/compose/:project/stop` | Stop every service in the project |
+| `POST` | `/api/v1/compose/:project/restart` | Restart every service in the project |
+| `POST` | `/api/v1/compose/:project/services/:service/start` | Start one service |
+| `POST` | `/api/v1/compose/:project/services/:service/stop` | Stop one service |
+| `POST` | `/api/v1/compose/:project/services/:service/restart` | Restart one service |
 
 #### Compose Stacks (app-managed)
 
@@ -152,7 +167,7 @@ If you'd rather skip the volume, just set `DOCKERTAB_API_KEY` and `DOCKERTAB_JWT
 | `POST` | `/api/v1/compose/stacks/:name/pull` | Pull latest images |
 | `GET` | `/api/v1/compose/stacks/:name/logs?lines=100` | Last N log lines (max 5000) |
 
-> **Note:** Up, Down, Pull, and Logs require the `docker` CLI to be available in the agent container — it is included from v2.0 onwards.
+> **Note:** Up, Down, Pull, and Logs require the `docker` CLI to be available in the agent container. It is included from v2.0 onwards.
 
 ---
 
@@ -164,20 +179,20 @@ Stacks deployed through the app are stored on the agent host at:
 ~/.config/dockertab/compose/<stack-name>/docker-compose.yml
 ```
 
-This directory is persisted via the `dockertab-config-android` volume. Stacks started outside the app (discovered from running containers) are read-only — their compose files are not managed by the agent.
+This directory is persisted via the `dockertab-config-android` volume. Stacks started outside the app (discovered from running containers) are read-only because their compose files are not managed by the agent.
 
 ---
 
 ## Push Notifications & Remote Access
 
-Push notifications and remote access (outside your home network) are **DockerTab Premium** features, powered by the DockerTab relay — operated by DockerTab.
+Push notifications and remote access (outside your home network) are **DockerTab Premium** features, powered by the relay that DockerTab operates.
 
 The agent maintains a persistent WebSocket connection to the relay. This serves two purposes:
 
-- **Push notifications** — container start, stop, and restart events are forwarded to FCM and delivered to your Android device, even when you're away from home.
-- **Remote access** — when your phone is outside your LAN, the relay proxies API requests to your agent so you can manage containers from anywhere without exposing your server to the internet.
+- **Push notifications**: container start, stop, and restart events are forwarded to FCM and delivered to your Android device, even when you're away from home.
+- **Remote access**: when your phone is outside your LAN, the relay proxies API requests to your agent so you can manage containers from anywhere without exposing your server to the internet.
 
-**Privacy:** The relay is stateless. It forwards requests and notification payloads without storing or retaining any data. Only the minimum information needed to deliver a notification (container name, action, agent ID) is ever transmitted — no logs, no environment variables, no sensitive data.
+**Privacy:** The relay is stateless. It forwards requests and notification payloads without storing or retaining any data. Only the minimum information needed to deliver a notification (container name, action, agent ID) is ever transmitted, no logs, no environment variables, no sensitive data.
 
 ---
 

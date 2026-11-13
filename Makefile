@@ -5,9 +5,9 @@ HOST_IP := $(shell ipconfig getifaddr en0 2>/dev/null || ip -4 route get 1 2>/de
 
 ## setup: write .env with the auto-detected LAN IP
 setup:
-	@if [ -z "$(HOST_IP)" ]; then echo "ERROR: could not detect LAN IP — set DOCKERTAB_HOST manually"; exit 1; fi
+	@if [ -z "$(HOST_IP)" ]; then echo "ERROR: could not detect LAN IP, set DOCKERTAB_HOST manually"; exit 1; fi
 	@echo "DOCKERTAB_HOST=$(HOST_IP)" > .env
-	@echo "✓ .env created — DOCKERTAB_HOST=$(HOST_IP)"
+	@echo "✓ .env created with DOCKERTAB_HOST=$(HOST_IP)"
 
 ## up: setup + start containers
 up: setup
